@@ -1,0 +1,32 @@
+# Terraform
+.terraform/
+.terraform.tfstate.lock.info
+*.tfstate
+*.tfstate.*
+# plan ファイルは属性値を平文で持つため state と同じ扱いにする
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# ローカルの env 値 / backend 設定
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+backend.hcl
+.env
+.env.*
+!.env.example
+
+# 認証情報
+service-account*.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

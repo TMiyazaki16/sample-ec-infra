@@ -1,0 +1,4 @@
+# terraform init -backend-config=backend.hcl で使う値の雛形。
+# 利用する場合は versions.tf の backend "gcs" を有効にしてからコピーする。
+# bucket = "example-terraform-state"
+# prefix = "ec-site/prod"

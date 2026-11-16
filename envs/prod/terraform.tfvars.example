@@ -1,0 +1,8 @@
+# 既定値は variables.tf に入っているため、変更したい項目だけを上書きする。
+# cp terraform.tfvars.example terraform.tfvars で作成する（tfvars は commit しない）。
+
+# project_id           = "ec-site-handson"
+# region               = "asia-northeast1"
+# domain               = "example.com"
+# site_domain          = "app.example.com"
+# frontend_bucket_name = "example-frontend"
