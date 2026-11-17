@@ -65,9 +65,17 @@ resource "google_cloud_run_v2_service" "this" {
     }
   }
 
-  # CI がデプロイした本番イメージを Terraform が初期イメージへ巻き戻さないようにする
+  # CI がデプロイした本番イメージを Terraform が初期イメージへ巻き戻さないようにする。
+  #
+  # client / client_version は「最後にデプロイしたツール」を GCP 側が記録するメタデータで、
+  # CI が gcloud run deploy を実行するたびに付与される。無視しないと CI が動くたびに
+  # plan へ差分が出続け、本当に見るべき差分が埋もれる。どちらも CI の責任範囲に属する。
   lifecycle {
-    ignore_changes = [template[0].containers[0].image]
+    ignore_changes = [
+      template[0].containers[0].image,
+      client,
+      client_version,
+    ]
   }
 
   depends_on = [google_secret_manager_secret_iam_member.jwt_accessor]

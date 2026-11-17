@@ -41,7 +41,7 @@ terraform plan                   # ADC が必要
 - Cloud Run の `max_instance_count` は 1 に固定する。バックエンドが H2 インメモリ DB を使っており、2 インスタンス以上でデータが食い違うため。Cloud SQL へ移行するまで引き上げない。同様に `H2_CONSOLE_ENABLED` は `"false"` を明示する（アプリ既定は `"true"` で、H2 コンソールが認証なしで公開される）
 - GitHub Actions のデプロイ用サービスアカウントは `envs/prod-bootstrap` が作り、権限付与は `envs/prod/ci_iam.tf` が行う。権限はプロジェクトレベルではなくリソース単位で与える（プロジェクトレベルにすると、今後追加されるリソースにも自動的に及ぶため）
 - Artifact Registry も destroy の対象。イメージごと消えるため、再構築後はデプロイ前に CI でのビルドが必要
-- Cloud Run のコンテナイメージは CI がデプロイする。`lifecycle { ignore_changes = [...image] }` を外さない
+- Cloud Run のコンテナイメージは CI がデプロイする。`lifecycle { ignore_changes = [...] }` を外さない。無視しているのはイメージと、`gcloud run deploy` が付与する `client` / `client_version`（デプロイ元のツール名）。後者は CI が動くたびに再発するため、無視しないと plan に毎回ノイズが出る
 - マネージド SSL 証明書は DNS が LB の IP を指すまで `ACTIVE` にならない。apply 直後に 502 や証明書エラーが出ても異常とは限らない
 - DNS ゾーンと CAA レコードは `envs/prod-bootstrap`、A レコードは `envs/prod` にある。A レコードが指す IP は再構築のたびに変わるが、ネームサーバーは変わらないのでレジストラ側の作業は初回だけでよい。この分割を崩す変更（ゾーンを `envs/prod` へ戻すなど）は提案しない
 
