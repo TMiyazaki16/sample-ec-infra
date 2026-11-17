@@ -37,3 +37,13 @@ output "backend_image_uri_example" {
   description = "バックエンドのイメージ URI の例（タグは CI が付ける）"
   value       = "${module.artifactregistry.repository_url}/${var.name_prefix}-back:<tag>"
 }
+
+output "front_deploy_sa_email" {
+  description = "フロントエンド用デプロイサービスアカウント（本体は envs/prod-bootstrap が管理）"
+  value       = data.google_service_account.ci_front.email
+}
+
+output "back_deploy_sa_email" {
+  description = "バックエンド用デプロイサービスアカウント（本体は envs/prod-bootstrap が管理）"
+  value       = data.google_service_account.ci_back.email
+}

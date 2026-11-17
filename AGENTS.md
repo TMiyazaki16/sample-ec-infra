@@ -14,6 +14,7 @@ EC サイトの Google Cloud インフラ（IaC）。アプリコードは置か
 ## ディレクトリ構成
 
 - `envs/<env>/` — 環境ごとのルートモジュール。モジュールの組み立てと環境固有値だけを置く
+- `envs/prod-bootstrap/` — 一度だけ apply し **destroy しない** state。Workload Identity Pool のように、削除するとソフトデリートで再作成できなくなるものを置く。ここへ destroy を提案しない
 - `modules/<機能>/` — 再利用するモジュール。`main.tf` / `variables.tf` / `outputs.tf` / `versions.tf` の 4 点を揃える
 
 モジュール側にドメイン名・プロジェクト ID・バケット名を直書きしない。必ず変数で受け、既定値は `envs/<env>/variables.tf` に置く。
@@ -38,6 +39,7 @@ terraform plan                   # ADC が必要
 - コスト削減のため、平時は `terraform destroy` で全削除し、必要時に `terraform apply` で再構築する。この前提があるため、バケットは `force_destroy = true`、Cloud Run は `deletion_protection = false` にしている。外す提案をするときはこの運用との整合を先に確認する
 - Secret Manager のシークレットは手動作成済み。Terraform では `data` で参照するだけで、作成・更新・値の読み出しをしない
 - Cloud Run の `max_instance_count` は 1 に固定する。バックエンドが H2 インメモリ DB を使っており、2 インスタンス以上でデータが食い違うため。Cloud SQL へ移行するまで引き上げない。同様に `H2_CONSOLE_ENABLED` は `"false"` を明示する（アプリ既定は `"true"` で、H2 コンソールが認証なしで公開される）
+- GitHub Actions のデプロイ用サービスアカウントは `envs/prod-bootstrap` が作り、権限付与は `envs/prod/ci_iam.tf` が行う。権限はプロジェクトレベルではなくリソース単位で与える（プロジェクトレベルにすると、今後追加されるリソースにも自動的に及ぶため）
 - Artifact Registry も destroy の対象。イメージごと消えるため、再構築後はデプロイ前に CI でのビルドが必要
 - Cloud Run のコンテナイメージは CI がデプロイする。`lifecycle { ignore_changes = [...image] }` を外さない
 - マネージド SSL 証明書は DNS が LB の IP を指すまで `ACTIVE` にならない。apply 直後に 502 や証明書エラーが出ても異常とは限らない

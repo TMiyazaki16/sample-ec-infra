@@ -6,9 +6,11 @@ EC サイト本番環境のインフラを Terraform で管理するリポジト
 
 ```
 envs/
-  prod/        環境ごとのルートモジュール（モジュールの組み立てと環境固有値）
+  prod/            環境ごとのルートモジュール（モジュールの組み立てと環境固有値）
+  prod-bootstrap/  一度だけ apply し destroy しないリソース（GitHub Actions の OIDC 連携）
 modules/
   artifactregistry/  CI がビルドしたコンテナイメージの置き場
+  github_oidc/       GitHub Actions から GCP を操作するための Workload Identity 連携
   dns/         Cloud DNS のゾーンとレコード
   storage/     フロントエンド（SPA）配信用の Cloud Storage バケット
   cloudrun/    バックエンド API の Cloud Run サービス
@@ -45,6 +47,22 @@ modules/
 
 ## 使い方
 
+### 初回のみ
+
+`envs/prod-bootstrap` を一度だけ apply する。GitHub Actions の OIDC 連携とデプロイ用
+サービスアカウントが入っており、**destroy しない**。
+
+```sh
+cd envs/prod-bootstrap
+terraform init
+terraform apply
+```
+
+Workload Identity Pool は削除後 30 日間ソフトデリート状態になり同じ ID で再作成できないため、
+`envs/prod` の destroy / apply サイクルから分離している。
+
+### 通常の構築
+
 ```sh
 cd envs/prod
 terraform init
@@ -60,6 +78,20 @@ terraform apply
 2. DNS が LB の IP を指したのち、マネージド SSL 証明書が `ACTIVE` になるまで待つ（数十分かかる場合がある）。
 3. SPA のビルド成果物を `terraform output frontend_bucket_url` のバケットへアップロードする。
 4. バックエンドのコンテナイメージは CI からデプロイする。Terraform は初期イメージのまま差分を無視する。
+
+## GitHub Actions に設定する値
+
+`envs/prod-bootstrap` の output を、各リポジトリの Actions 変数へ設定する。
+Pool は destroy しないため、`envs/prod` を作り直しても値は変わらない。
+
+| 値 | 設定先 |
+| --- | --- |
+| `wif_provider_name` | 両リポジトリ |
+| `front_deploy_sa_email` | `SampleECSite` |
+| `back_deploy_sa_email` | `SampleECSiteBackend` |
+
+各サービスアカウントへの権限付与は `envs/prod/ci_iam.tf` が行う。対象リソースが destroy で
+消えるため、権限もそちらの state 側で作り直す構成にしている。
 
 ## 前提
 
