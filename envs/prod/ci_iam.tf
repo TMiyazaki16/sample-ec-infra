@@ -54,3 +54,13 @@ resource "google_service_account_iam_member" "ci_back_act_as_runtime" {
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${data.google_service_account.ci_back.email}"
 }
+
+# rsync は同期を始める前に宛先バケットのメタデータを取得するため storage.buckets.get が要る。
+# objectAdmin はオブジェクト単位の権限しか含まないため、バケット自体への読み取り権限を別に与える。
+# legacyBucketReader が持つのは storage.buckets.get と storage.objects.list のみで、
+# バケットの設定変更や削除はできない。
+resource "google_storage_bucket_iam_member" "ci_front_bucket_reader" {
+  bucket = module.storage.bucket_name
+  role   = "roles/storage.legacyBucketReader"
+  member = "serviceAccount:${data.google_service_account.ci_front.email}"
+}
