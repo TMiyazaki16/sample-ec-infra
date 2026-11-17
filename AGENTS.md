@@ -7,14 +7,14 @@ EC サイトの Google Cloud インフラ（IaC）。アプリコードは置か
 - フロントエンド（SPA）: Cloud Storage
 - バックエンド API: Cloud Run
 - 公開経路: 外部アプリケーションロードバランサ（`/api/*` のみ Cloud Run、それ以外は Storage）
-- DNS: Cloud DNS（レジストラから NS 委任）
+- DNS: Cloud DNS（レジストラから NS 委任）。ゾーンは `envs/prod-bootstrap`、A レコードは `envs/prod`
 
 構成の概要と運用手順は `README.md`、環境固有の値と outputs は `envs/prod/README.md` を正とする。
 
 ## ディレクトリ構成
 
 - `envs/<env>/` — 環境ごとのルートモジュール。モジュールの組み立てと環境固有値だけを置く
-- `envs/prod-bootstrap/` — 一度だけ apply し **destroy しない** state。Workload Identity Pool のように、削除するとソフトデリートで再作成できなくなるものを置く。ここへ destroy を提案しない
+- `envs/prod-bootstrap/` — 一度だけ apply し **destroy しない** state。作り直すと外部（GitHub / レジストラ）の設定をやり直す羽目になるものを置く。現在は Workload Identity Pool（削除後 30 日は同じ ID で再作成できない）と Cloud DNS ゾーン（作り直すとネームサーバーが変わる）。ここへ destroy を提案しない
 - `modules/<機能>/` — 再利用するモジュール。`main.tf` / `variables.tf` / `outputs.tf` / `versions.tf` の 4 点を揃える
 
 モジュール側にドメイン名・プロジェクト ID・バケット名を直書きしない。必ず変数で受け、既定値は `envs/<env>/variables.tf` に置く。
@@ -43,6 +43,7 @@ terraform plan                   # ADC が必要
 - Artifact Registry も destroy の対象。イメージごと消えるため、再構築後はデプロイ前に CI でのビルドが必要
 - Cloud Run のコンテナイメージは CI がデプロイする。`lifecycle { ignore_changes = [...image] }` を外さない
 - マネージド SSL 証明書は DNS が LB の IP を指すまで `ACTIVE` にならない。apply 直後に 502 や証明書エラーが出ても異常とは限らない
+- DNS ゾーンと CAA レコードは `envs/prod-bootstrap`、A レコードは `envs/prod` にある。A レコードが指す IP は再構築のたびに変わるが、ネームサーバーは変わらないのでレジストラ側の作業は初回だけでよい。この分割を崩す変更（ゾーンを `envs/prod` へ戻すなど）は提案しない
 
 ## AI開発ルール
 

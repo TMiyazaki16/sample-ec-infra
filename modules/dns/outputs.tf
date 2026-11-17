@@ -1,9 +1,4 @@
-output "zone_name" {
-  description = "作成したマネージドゾーンのリソース名"
-  value       = google_dns_managed_zone.this.name
-}
-
-output "name_servers" {
-  description = "ゾーンに割り当てられたネームサーバー（レジストラの NS 設定に登録する）"
-  value       = google_dns_managed_zone.this.name_servers
+output "site_record_name" {
+  description = "作成した A レコードの名前（末尾ドット付き）"
+  value       = google_dns_record_set.site.name
 }

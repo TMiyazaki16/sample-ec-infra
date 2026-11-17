@@ -4,8 +4,8 @@ output "lb_ip_address" {
 }
 
 output "dns_name_servers" {
-  description = "レジストラの NS レコードに設定するネームサーバー（4 本）"
-  value       = module.dns.name_servers
+  description = "レジストラの NS レコードに設定するネームサーバー（4 本）。ゾーンは envs/prod-bootstrap が管理しており、destroy / apply しても値は変わらない"
+  value       = data.google_dns_managed_zone.site.name_servers
 }
 
 output "site_url" {

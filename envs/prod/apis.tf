@@ -6,12 +6,13 @@
 # disable_on_destroy = false にしているのは、平時は destroy する運用のため。destroy のたびに
 # API を無効化すると、再 apply のたびに有効化の伝播待ちが発生し、他の構成にも影響しうる。
 
+# dns.googleapis.com はゾーンを持つ envs/prod-bootstrap 側で有効化する（二重管理を避けるため）。
+
 locals {
   required_services = [
     "artifactregistry.googleapis.com",
     "compute.googleapis.com",
     "run.googleapis.com",
-    "dns.googleapis.com",
     "secretmanager.googleapis.com",
     "storage.googleapis.com",
   ]

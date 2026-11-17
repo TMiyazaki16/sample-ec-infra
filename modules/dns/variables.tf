@@ -1,10 +1,5 @@
 variable "zone_name" {
-  description = "Cloud DNS マネージドゾーンのリソース名"
-  type        = string
-}
-
-variable "domain" {
-  description = "管理するルートドメイン（末尾ドットなし）"
+  description = "レコードを作成する既存の Cloud DNS マネージドゾーン名（modules/dns_zone が作る）"
   type        = string
 }
 

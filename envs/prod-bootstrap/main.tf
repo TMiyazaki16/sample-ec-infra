@@ -21,3 +21,19 @@ module "github_oidc" {
   github_owner = var.github_owner
   repositories = var.github_repositories
 }
+
+# DNS ゾーンも同じ理由でここに置く。
+#
+#   - ゾーンを作り直すと割り当てられるネームサーバーが変わり、そのたびにレジストラ
+#     （GoDaddy）側の設定をやり直す必要がある
+#   - 維持費はゾーン 1 つあたり月 $0.20 程度で、消しても得が小さい
+#
+# LB の IP を指す A レコードだけは IP が毎回変わるため envs/prod 側に置いている。
+module "dns_zone" {
+  source = "../../modules/dns_zone"
+
+  depends_on = [google_project_service.required]
+
+  zone_name = var.dns_zone_name
+  domain    = var.domain
+}

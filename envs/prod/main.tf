@@ -8,6 +8,9 @@
 #            ├→ lb ─→ dns（A レコードが LB の静的 IP を指す）
 #   cloudrun ┘
 #
+#   DNS ゾーンは envs/prod-bootstrap 側にある。ゾーンを作り直すとネームサーバーが変わり、
+#   レジストラ側の再設定が必要になるため、destroy の対象に含めていない。
+#
 #   artifactregistry は他から参照されない。CI がビルドしたイメージの置き場で、
 #   Cloud Run へのデプロイは CI が行う（Terraform は image を ignore_changes にしている）。
 
@@ -66,13 +69,21 @@ module "lb" {
   frontend_bucket_name   = module.storage.bucket_name
 }
 
+# ゾーン本体と CAA レコードは envs/prod-bootstrap が持つ（destroy で消さないため）。
+# ここで作るのは LB の IP を指す A レコードだけ。
+#
+# 前提: envs/prod-bootstrap を先に apply しておくこと。未適用の場合、下の data 参照が
+# 「ゾーンが見つからない」というエラーになる。
+data "google_dns_managed_zone" "site" {
+  name = var.dns_zone_name
+}
+
 module "dns" {
   source = "../../modules/dns"
 
   depends_on = [google_project_service.required]
 
   zone_name     = var.dns_zone_name
-  domain        = var.domain
   site_domain   = var.site_domain
   lb_ip_address = module.lb.ip_address
 }

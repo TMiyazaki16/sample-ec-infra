@@ -7,6 +7,7 @@
 locals {
   required_services = [
     "cloudresourcemanager.googleapis.com",
+    "dns.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "sts.googleapis.com",

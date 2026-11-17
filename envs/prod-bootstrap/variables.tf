@@ -24,3 +24,15 @@ variable "github_repositories" {
     back  = "SampleECSiteBackend"
   }
 }
+
+variable "domain" {
+  description = "Cloud DNS で管理するルートドメイン"
+  type        = string
+  default     = "tmiyazaki-works.com"
+}
+
+variable "dns_zone_name" {
+  description = "Cloud DNS マネージドゾーンのリソース名（envs/prod からも同じ名前で参照する）"
+  type        = string
+  default     = "tmiyazaki-works-zone"
+}
