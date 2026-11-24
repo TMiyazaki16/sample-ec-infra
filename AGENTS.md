@@ -38,7 +38,10 @@ terraform plan                   # ADC が必要
 
 - コスト削減のため、平時は `terraform destroy` で全削除し、必要時に `terraform apply` で再構築する。この前提があるため、バケットは `force_destroy = true`、Cloud Run は `deletion_protection = false` にしている。外す提案をするときはこの運用との整合を先に確認する
 - Secret Manager のシークレットは手動作成済み。Terraform では `data` で参照するだけで、作成・更新・値の読み出しをしない
-- Cloud Run の `max_instance_count` は 1 に固定する。バックエンドが H2 インメモリ DB を使っており、2 インスタンス以上でデータが食い違うため。Cloud SQL へ移行するまで引き上げない。同様に `H2_CONSOLE_ENABLED` は `"false"` を明示する（アプリ既定は `"true"` で、H2 コンソールが認証なしで公開される）
+- Cloud Run の `max_instance_count` の上限は Cloud SQL の接続数で決まる。`db-f1-micro` の `max_connections` は 25 前後、HikariCP の既定プールは 1 インスタンスあたり 10 接続のため、2 を超えるなら先に `db_tier` を上げる（H2 インメモリ DB 時代の「1 固定」という制約は 2026-11-24 の Cloud SQL 移行で解消済み。`H2_CONSOLE_ENABLED` も同時に廃止した）
+- Cloud SQL への接続はアプリに同梱した Cloud SQL Java Connector が Cloud SQL Admin API 経由で行う。Java は Unix ドメインソケットを扱えないため、Cloud Run のソケットマウント（`volumes` / `volume_mounts`）は使わない。代わりに実行サービスアカウントへの `roles/cloudsql.client` が必須
+- Cloud SQL のインスタンス名には `random_id` の接尾辞が付く。`terraform state show` ではなく `terraform output cloudsql_instance_name` で実際の名前を確認する
+- DB パスワードは `password_wo`（書き込み専用引数）で渡すため、`plan` / `apply` の前に `TF_VAR_db_password` の設定が必要。手順は `envs/prod/README.md` を正とする
 - GitHub Actions のデプロイ用サービスアカウントは `envs/prod-bootstrap` が作り、権限付与は `envs/prod/ci_iam.tf` が行う。権限はプロジェクトレベルではなくリソース単位で与える（プロジェクトレベルにすると、今後追加されるリソースにも自動的に及ぶため）
 - Artifact Registry も destroy の対象。イメージごと消えるため、再構築後はデプロイ前に CI でのビルドが必要
 - Cloud Run のコンテナイメージは CI がデプロイする。`lifecycle { ignore_changes = [...] }` を外さない。無視しているのはイメージと、`gcloud run deploy` が付与する `client` / `client_version`（デプロイ元のツール名）。後者は CI が動くたびに再発するため、無視しないと plan に毎回ノイズが出る

@@ -47,3 +47,13 @@ output "back_deploy_sa_email" {
   description = "バックエンド用デプロイサービスアカウント（本体は envs/prod-bootstrap が管理）"
   value       = data.google_service_account.ci_back.email
 }
+
+output "cloudsql_instance_name" {
+  description = "Cloud SQL インスタンス名。apply のたびにランダムな接尾辞が変わるため、gcloud で操作する際はここを見る"
+  value       = module.cloudsql.instance_name
+}
+
+output "cloudsql_connection_name" {
+  description = "Cloud SQL のインスタンス接続名。gcloud sql connect や Cloud SQL Auth Proxy で DB を覗く際に使う"
+  value       = module.cloudsql.connection_name
+}

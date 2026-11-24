@@ -51,3 +51,40 @@ variable "jwt_secret_id" {
   type        = string
   default     = "sample-ec-jwt-secret"
 }
+
+variable "db_name" {
+  description = "Cloud SQL に作成するデータベース名（ローカルの docker-compose と揃える）"
+  type        = string
+  default     = "ecdb"
+}
+
+variable "db_user_name" {
+  description = "アプリが接続に使う MySQL ユーザー名（ローカルの docker-compose と揃える）"
+  type        = string
+  default     = "ecuser"
+}
+
+variable "db_password" {
+  description = <<-EOT
+    DB ユーザーのパスワード。既定値を持たせず、apply 時に環境変数で渡す:
+      export TF_VAR_db_password="$(gcloud secrets versions access latest --secret=sample-ec-db-password)"
+
+    ephemeral なので state にもプランファイルにも残らない。値そのものは db_password_secret_id の
+    シークレットが正で、Cloud Run へはそちらから直接注入される（Terraform を経由しない）。
+  EOT
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+}
+
+variable "db_password_secret_id" {
+  description = "手動作成済みの Secret Manager シークレット ID（DB ユーザーのパスワード）"
+  type        = string
+  default     = "sample-ec-db-password"
+}
+
+variable "db_tier" {
+  description = "Cloud SQL インスタンスのマシンタイプ。引き上げる場合は max_instance_count も見直す"
+  type        = string
+  default     = "db-f1-micro"
+}

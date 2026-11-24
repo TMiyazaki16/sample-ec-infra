@@ -4,9 +4,9 @@
 # 前提にしている。そのためバケットは force_destroy、Cloud Run は deletion_protection = false。
 #
 # 依存の向き:
-#   storage ─┐
-#            ├→ lb ─→ dns（A レコードが LB の静的 IP を指す）
-#   cloudrun ┘
+#   storage ──────────────┐
+#                          ├→ lb ─→ dns（A レコードが LB の静的 IP を指す）
+#   cloudsql ─→ cloudrun ──┘
 #
 #   DNS ゾーンは envs/prod-bootstrap 側にある。ゾーンを作り直すとネームサーバーが変わり、
 #   レジストラ側の再設定が必要になるため、destroy の対象に含めていない。
@@ -33,6 +33,40 @@ module "artifactregistry" {
   description   = "Container images for ${var.name_prefix}"
 }
 
+# バックエンドの永続 DB。平時 destroy する運用を維持する方針（案 A）のため、
+# prod-bootstrap ではなくこちらに置く。データは destroy のたびに消えるが、スキーマと
+# 初期データはアプリ起動時に Flyway が全自動で適用する。
+module "cloudsql" {
+  source = "../../modules/cloudsql"
+
+  # Cloud SQL インスタンスの作成には sqladmin API の有効化が先に要る
+  depends_on = [google_project_service.required]
+
+  instance_name_prefix = "${var.name_prefix}-db"
+  region               = var.region
+  database_name        = var.db_name
+  user_name            = var.db_user_name
+  tier                 = var.db_tier
+
+  # 値は state に残さないため ephemeral 変数で外から渡す（envs/prod/README.md を参照）
+  db_password = var.db_password
+}
+
+locals {
+  # 本番は Cloud SQL Java Connector（アプリに同梱: mysql-socket-factory-connector-j-8）が
+  # Cloud SQL Admin API 経由で接続する。Java は Unix ドメインソケットを扱えないため、
+  # Cloud Run のソケットマウントは使わない（代わりに roles/cloudsql.client が必須）。
+  #
+  # cloudSqlRefreshStrategy=lazy は Cloud Run で推奨される設定。既定の background のままだと
+  # リクエスト外で CPU がスロットリングされる環境で接続情報の更新が働かないことがある。
+  backend_datasource_url = join("", [
+    "jdbc:mysql:///${module.cloudsql.database_name}",
+    "?cloudSqlInstance=${module.cloudsql.connection_name}",
+    "&socketFactory=com.google.cloud.sql.mysql.SocketFactory",
+    "&cloudSqlRefreshStrategy=lazy",
+  ])
+}
+
 module "cloudrun" {
   source = "../../modules/cloudrun"
 
@@ -45,12 +79,14 @@ module "cloudrun" {
   location      = var.region
   jwt_secret_id = var.jwt_secret_id
 
-  # 以下 2 つはモジュールの既定値と同じだが、渡し忘れても fmt / validate / plan が通り、
-  # 静かに危険な本番ができてしまう項目なので env 側で明示する。
-  #   h2_console_enabled: アプリ既定は "true"（認証なしで DB を操作できる）
-  #   max_instance_count: H2 インメモリ DB のため 1 を超えるとデータが食い違う
-  h2_console_enabled = "false"
-  max_instance_count = 1
+  # DB 接続。パスワードはシークレット参照で注入するため、ここでは ID だけを渡す。
+  db_password_secret_id = var.db_password_secret_id
+  datasource_url        = local.backend_datasource_url
+  datasource_username   = module.cloudsql.user_name
+
+  # モジュールの既定値と同じだが、渡し忘れても fmt / validate / plan が通ってしまう項目なので
+  # env 側で明示する。上限は Cloud SQL の接続数で決まり、db-f1-micro のままなら 2 まで。
+  max_instance_count = 2
 
   # 同一オリジン構成のため本番では CORS は発生しないが、Cloud Run のサービス URL へ
   # 直接アクセスする場合に備えて設定する。ドメインを二重管理しないよう site_domain から組み立てる。

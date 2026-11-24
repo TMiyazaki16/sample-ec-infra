@@ -25,24 +25,28 @@ variable "jwt_secret_id" {
   type        = string
 }
 
+variable "db_password_secret_id" {
+  description = "手動作成済みの Secret Manager シークレット ID（DB ユーザーのパスワード）"
+  type        = string
+}
+
+variable "datasource_url" {
+  description = <<-EOT
+    SPRING_DATASOURCE_URL に渡す JDBC URL。必要な接続パラメータがアプリ側の依存ライブラリで
+    変わる（Cloud SQL Java Connector のプロパティを含む）ため、組み立ては env 側に置く。
+  EOT
+  type        = string
+}
+
+variable "datasource_username" {
+  description = "SPRING_DATASOURCE_USERNAME に渡す DB ユーザー名"
+  type        = string
+}
+
 variable "allow_unauthenticated" {
   description = "未認証の呼び出しを許可するか（ロードバランサ経由で公開するため既定は true）"
   type        = bool
   default     = true
-}
-
-variable "h2_console_enabled" {
-  description = <<-EOT
-    H2 コンソールを有効にするか。アプリ側の既定は "true" で、H2 コンソールは認証なしで
-    公開されるため、本番では必ず "false" を渡す（指定しないとアプリ既定の有効状態になる）。
-  EOT
-  type        = string
-  default     = "false"
-
-  validation {
-    condition     = contains(["true", "false"], var.h2_console_enabled)
-    error_message = "h2_console_enabled には \"true\" または \"false\" を指定する。"
-  }
 }
 
 variable "allowed_origins" {
@@ -52,12 +56,13 @@ variable "allowed_origins" {
 
 variable "max_instance_count" {
   description = <<-EOT
-    インスタンス数の上限。アプリが H2 インメモリ DB を使っており、DB がインスタンスごとに
-    独立するため 1 を超えると注文データと在庫がインスタンス間で食い違う。Cloud SQL へ
-    移行するまで 1 から引き上げられない。
+    インスタンス数の上限。Cloud SQL への移行により「H2 インメモリ DB がインスタンスごとに
+    独立する」という 1 固定の制約は外れたが、今度は DB 側の接続数が上限になる。
+    db-f1-micro の max_connections は 25 前後で、HikariCP の既定プールは 1 インスタンス
+    あたり 10 接続のため、2 を超えるなら先に Cloud SQL の tier を上げること。
   EOT
   type        = number
-  default     = 1
+  default     = 2
 
   validation {
     condition     = var.max_instance_count >= 1

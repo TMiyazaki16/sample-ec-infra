@@ -14,6 +14,7 @@ locals {
     "compute.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
+    "sqladmin.googleapis.com",
     "storage.googleapis.com",
   ]
 }

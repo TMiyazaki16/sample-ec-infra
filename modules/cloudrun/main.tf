@@ -15,6 +15,16 @@ resource "google_secret_manager_secret_iam_member" "jwt_accessor" {
   member    = "serviceAccount:service-${data.google_project.this.number}@serverless-robot-prod.iam.gserviceaccount.com"
 }
 
+data "google_secret_manager_secret" "db_password" {
+  secret_id = var.db_password_secret_id
+}
+
+resource "google_secret_manager_secret_iam_member" "db_password_accessor" {
+  secret_id = data.google_secret_manager_secret.db_password.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:service-${data.google_project.this.number}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
 resource "google_cloud_run_v2_service" "this" {
   name     = var.service_name
   location = var.location
@@ -30,7 +40,7 @@ resource "google_cloud_run_v2_service" "this" {
   }
 
   template {
-    # H2 インメモリ DB のため 1 を超えられない（modules/cloudrun/variables.tf の説明を参照）
+    # 上限は DB の接続数で決まる（modules/cloudrun/variables.tf の説明を参照）
     scaling {
       max_instance_count = var.max_instance_count
     }
@@ -42,15 +52,35 @@ resource "google_cloud_run_v2_service" "this" {
         container_port = var.container_port
       }
 
-      # アプリ側の既定は "true"。認証なしで DB を操作できてしまうため本番では無効にする
-      env {
-        name  = "H2_CONSOLE_ENABLED"
-        value = var.h2_console_enabled
-      }
-
       env {
         name  = "ALLOWED_ORIGINS"
         value = var.allowed_origins
+      }
+
+      # DB 接続情報。ローカルと本番で URL の形式が異なるため、値は env 側で組み立てて渡す。
+      #
+      # 本番は Cloud SQL Java Connector（アプリに同梱）が Cloud SQL Admin API 経由で接続する。
+      # Java は Unix ドメインソケットを扱えないため、Cloud Run のソケットマウント
+      # （volumes / volume_mounts）は使わない。代わりに実行サービスアカウントの
+      # roles/cloudsql.client が必須になる（付与は envs/prod/cloudsql_iam.tf）。
+      env {
+        name  = "SPRING_DATASOURCE_URL"
+        value = var.datasource_url
+      }
+
+      env {
+        name  = "SPRING_DATASOURCE_USERNAME"
+        value = var.datasource_username
+      }
+
+      env {
+        name = "SPRING_DATASOURCE_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = data.google_secret_manager_secret.db_password.secret_id
+            version = "latest"
+          }
+        }
       }
 
       env {
@@ -78,7 +108,10 @@ resource "google_cloud_run_v2_service" "this" {
     ]
   }
 
-  depends_on = [google_secret_manager_secret_iam_member.jwt_accessor]
+  depends_on = [
+    google_secret_manager_secret_iam_member.jwt_accessor,
+    google_secret_manager_secret_iam_member.db_password_accessor,
+  ]
 }
 
 # 未認証アクセスを許可（アクセス制御はロードバランサ側で行う）
